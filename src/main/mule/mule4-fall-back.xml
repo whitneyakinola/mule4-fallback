@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="1775cf2d-d21b-46dd-8014-bdff77bb75c5" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="51bbbe44-1cb3-48f0-8f79-7b613dfdf219" >
+		<http:request-connection host="${http.host}" port="${http.port}" />
+	</http:request-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="3a6d6990-083a-4b76-bd69-dfd3a957bdc7" file="properties/app.properties" />
+	<flow name="mule4-fall-backFlow" doc:id="8efad51b-0b34-4e2e-9805-79d0c81b15cc" >
+		<http:listener doc:name="Listener" doc:id="5092e8b3-3d6a-4dd8-ba48-772a73456347" config-ref="HTTP_Listener_config" path="/fallback"/>
+		<logger level="INFO" doc:name="Start " doc:id="7ee6dc39-3ed0-43ba-b695-b9ca7ef39257" message='#["Log Fallback Project API"]'/>
+		<try doc:name="Try" doc:id="0c69bb58-32d1-4eed-b9f7-62c7a20b14c4" >
+			<until-successful maxRetries="${retry.maxretries}" doc:name="Until Successful" doc:id="5eaaba05-0a3f-481a-bb71-6a07c2aeca66" millisBetweenRetries="${retry.milliseconds}">
+			<http:request method="GET" doc:name="GET /states" doc:id="1da0de44-2702-4d70-8963-04c1f2eb68b1" config-ref="HTTP_Request_configuration" path="${http.path}" />
+		</until-successful>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="de7a3d68-8bbe-4ca0-b49d-b34a6dda4d7a" >
+					<flow-ref doc:name="Call Fall Back" doc:id="fa9e8907-47bd-43f1-82bb-c550d3f23054" name="static-fall-backSub_Flow"/>
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<logger level="INFO" doc:name="End" doc:id="fecffa3f-46d5-4763-8190-54dc9de29bb4" message='#["End Flow Log Fallback Project API"]'/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="4c6c5b9d-12f2-4e56-8c2b-b579005a8046" >
+				<logger level="INFO" doc:name="System Error" doc:id="05faa2a4-f6c3-4fc5-9867-a72a090dbe6a" message='#["System Error"]'/>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<sub-flow name="static-fall-backSub_Flow" doc:id="eae727b3-952d-4d89-9dd3-cb550c6519b4" >
+		<ee:transform doc:name="Retrieve Static States" doc:id="4de77236-28a6-439d-b623-784078fd3fde" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+readUrl("classpath://static-states-response.json", "application/json")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+</mule>
